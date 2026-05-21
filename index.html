@@ -120,12 +120,26 @@ body{font-family:'Inter',sans-serif;background:var(--gray);color:var(--black);mi
 .tr-dots{display:flex;gap:6px;align-items:center;flex:1;flex-wrap:wrap;padding-bottom:20px;}
 .tdot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;position:relative;flex-shrink:0;}
 .tdot::after{content:attr(data-l);position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--gray-dark);white-space:nowrap;}
+.trend-chart{margin:14px 0 20px;background:var(--gray);border-radius:10px;padding:14px 12px 6px;}
+.trend-chart svg{width:100%;height:auto;display:block;}
+.trend-summary{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--gray-dark);margin-bottom:6px;flex-wrap:wrap;}
+.trend-summary .pill-delta{font-weight:700;padding:2px 9px;border-radius:12px;font-size:11px;}
+.trend-teams{border-top:1px solid var(--gray-mid);padding-top:4px;margin-top:8px;}
+.trd-row{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid #f0f0f0;}
+.trd-row:last-child{border-bottom:none;}
+.trd-name{flex:0 0 200px;font-size:13px;font-weight:500;}
+.trd-spark{flex:0 0 140px;}
+.trd-spark svg{display:block;}
+.trd-vals{flex:0 0 96px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;}
+.trd-vals .trd-arrow{color:#bbb;}
+.trd-vals .trd-vend{font-size:15px;}
+.trd-delta{flex:1;font-size:13px;font-weight:700;text-align:right;min-width:60px;}
 .cmp-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(50,170,53,.15);color:var(--green);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid rgba(50,170,53,.3);}
 .empty{text-align:center;padding:48px 20px;color:var(--gray-dark);font-size:14px;}
 .filters{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--black);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:1000;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
-@media(max-width:768px){.hdr,.topbar,.tabs,.pane{padding-left:16px;padding-right:16px;}.kpi-row{grid-template-columns:repeat(2,1fr);}.sg{grid-template-columns:1fr;}.tr-name{flex:0 0 110px;font-size:11px;}}
+@media(max-width:768px){.hdr,.topbar,.tabs,.pane{padding-left:16px;padding-right:16px;}.kpi-row{grid-template-columns:repeat(2,1fr);}.sg{grid-template-columns:1fr;}.tr-name{flex:0 0 110px;font-size:11px;}.trd-name{flex:0 0 110px;font-size:11px;}.trd-spark{flex:0 0 90px;}.trd-vals{flex:0 0 80px;font-size:11px;}.trd-vals .trd-vend{font-size:13px;}.trd-delta{font-size:11px;}}
 </style>
 </head>
 <body>
@@ -523,26 +537,128 @@ function renderTable(){
   document.getElementById('tbl-wrap').innerHTML=html;
 }
 
+function firstLast(arr){
+  var f=null,l=null;
+  for(var i=0;i<arr.length;i++)if(arr[i]!==null&&arr[i]!==undefined){f=arr[i];break;}
+  for(var i=arr.length-1;i>=0;i--)if(arr[i]!==null&&arr[i]!==undefined){l=arr[i];break;}
+  return{first:f,last:l};
+}
+function trendColor(first,last){
+  if(first===null||last===null)return'#888';
+  if(last>first+0.05)return'#2E7D32';
+  if(last<first-0.05)return'#C62828';
+  return'#888';
+}
+function buildLineChart(values,labels){
+  var W=620,H=220,pad={t:24,r:16,b:36,l:34};
+  var w=W-pad.l-pad.r,h=H-pad.t-pad.b;
+  var nn=values.filter(function(v){return v!==null;});
+  if(nn.length<2)return'<div style="text-align:center;padding:30px;color:var(--gray-dark);font-size:12px;">Niet genoeg data voor grafiek</div>';
+  var dMin=Math.min.apply(null,nn),dMax=Math.max.apply(null,nn);
+  var range=Math.max(dMax-dMin,1);
+  var yMin=Math.max(0,Math.floor((dMin-range*0.2)*2)/2);
+  var yMax=Math.min(10,Math.ceil((dMax+range*0.2)*2)/2);
+  if(yMax-yMin<1){yMax=Math.min(10,yMin+1);}
+  var n=values.length;
+  var xs=values.map(function(_,i){return pad.l+(n===1?w/2:w*i/(n-1));});
+  var ys=values.map(function(v){return v===null?null:pad.t+h*(1-(v-yMin)/(yMax-yMin));});
+  var fl=firstLast(values),col=trendColor(fl.first,fl.last);
+  var path='',started=false;
+  for(var i=0;i<n;i++){if(ys[i]!==null){path+=(started?' L':'M')+xs[i].toFixed(1)+','+ys[i].toFixed(1);started=true;}}
+  var area=path?path+' L'+xs[n-1].toFixed(1)+','+(pad.t+h)+' L'+xs[0].toFixed(1)+','+(pad.t+h)+' Z':'';
+  var grid='',steps=4;
+  for(var g=0;g<=steps;g++){
+    var yv=yMin+(yMax-yMin)*g/steps,py=pad.t+h*(1-g/steps);
+    grid+='<line x1="'+pad.l+'" y1="'+py+'" x2="'+(pad.l+w)+'" y2="'+py+'" stroke="#e4e4e4" stroke-width="1"/>';
+    grid+='<text x="'+(pad.l-6)+'" y="'+(py+3)+'" font-size="9" fill="#888" text-anchor="end">'+yv.toFixed(1)+'</text>';
+  }
+  var xlabels='';
+  for(var i=0;i<n;i++){
+    xlabels+='<text x="'+xs[i].toFixed(1)+'" y="'+(pad.t+h+14)+'" font-size="9" fill="#666" text-anchor="middle">'+labels[i]+'</text>';
+  }
+  var dots='';
+  for(var i=0;i<n;i++){
+    if(ys[i]===null)continue;
+    var dc=sc(values[i]);
+    dots+='<circle cx="'+xs[i].toFixed(1)+'" cy="'+ys[i].toFixed(1)+'" r="4.5" fill="'+dc+'" stroke="#fff" stroke-width="2"/>';
+    dots+='<text x="'+xs[i].toFixed(1)+'" y="'+(ys[i]-10).toFixed(1)+'" font-size="11" font-weight="700" fill="'+dc+'" text-anchor="middle">'+values[i].toFixed(1)+'</text>';
+  }
+  var gid='g'+Math.floor(Math.random()*1e9);
+  return'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'+
+    '<defs><linearGradient id="'+gid+'" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="'+col+'" stop-opacity="0.18"/><stop offset="100%" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'+
+    grid+
+    (area?'<path d="'+area+'" fill="url(#'+gid+')"/>':'')+
+    '<path d="'+path+'" fill="none" stroke="'+col+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'+
+    dots+xlabels+
+  '</svg>';
+}
+function buildSparkline(values){
+  var W=140,H=36,p=4;
+  var w=W-p*2,h=H-p*2;
+  var nn=values.filter(function(v){return v!==null;});
+  if(nn.length<2)return'<svg viewBox="0 0 '+W+' '+H+'" style="width:'+W+'px;height:'+H+'px;"></svg>';
+  var dMin=Math.min.apply(null,nn),dMax=Math.max.apply(null,nn);
+  var range=Math.max(dMax-dMin,0.5);
+  var yMin=dMin-range*0.25,yMax=dMax+range*0.25;
+  var n=values.length;
+  var xs=values.map(function(_,i){return p+(n===1?w/2:w*i/(n-1));});
+  var ys=values.map(function(v){return v===null?null:p+h*(1-(v-yMin)/(yMax-yMin));});
+  var fl=firstLast(values),col=trendColor(fl.first,fl.last);
+  var path='',started=false;
+  for(var i=0;i<n;i++){if(ys[i]!==null){path+=(started?' L':'M')+xs[i].toFixed(1)+','+ys[i].toFixed(1);started=true;}}
+  var dots='';
+  for(var i=0;i<n;i++){
+    if(ys[i]===null)continue;
+    dots+='<circle cx="'+xs[i].toFixed(1)+'" cy="'+ys[i].toFixed(1)+'" r="2.5" fill="'+sc(values[i])+'"/>';
+  }
+  return'<svg viewBox="0 0 '+W+' '+H+'" style="width:'+W+'px;height:'+H+'px;"><path d="'+path+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg>';
+}
 function renderTrends(){
   var wrap=document.getElementById('trends-wrap');
   if(S.measurements.length<2){wrap.innerHTML='<div class="card"><div class="empty">📈<br><br>Voeg minimaal 2 metingen toe om trends te zien.</div></div>';return;}
   var qs=S.measurements[0].data.questions.map(function(q){return q.label;});
   var sets=S.measurements.map(function(m){return new Set(m.data.teams.map(function(t){return t.name;}));});
   var common=[...sets[0]].filter(function(n){return sets.every(function(s){return s.has(n);});});
+  var mLabels=S.measurements.map(function(m){return m.name.length>14?m.name.substring(0,14)+'…':m.name;});
   var html='';
   qs.forEach(function(ql){
-    html+='<div class="card"><div class="card-title">'+ql+'</div><div class="card-sub">'+S.measurements.length+' meetmomenten</div>';
-    common.slice(0,25).forEach(function(tn){
-      var dots=S.measurements.map(function(m){var t=m.data.teams.find(function(t){return t.name===tn;});return{s:t&&t.scores[ql]!==undefined?t.scores[ql]:null,l:m.name.length>12?m.name.substring(0,12)+'…':m.name};});
-      if(dots.every(function(d){return d.s===null;}))return;
-      html+='<div class="tr-row"><div class="tr-name">'+tn+'</div><div class="tr-dots">';
-      dots.forEach(function(d,i){
-        var nx=dots[i+1]?dots[i+1].s:null;
-        html+=d.s===null?'<div class="tdot" style="background:#ddd;color:#999;" data-l="'+d.l+'">—</div>':'<div class="tdot" style="background:'+sc(d.s)+';" data-l="'+d.l+'">'+d.s.toFixed(1)+'</div>';
-        if(i<dots.length-1&&d.s!==null&&nx!==null)html+='<span style="color:'+(nx>d.s?'#2E7D32':nx<d.s?'#C62828':'#888')+';font-weight:700;font-size:16px;">→</span>';
-      });
-      html+='</div></div>';
+    var avgVals=S.measurements.map(function(m){
+      var vs=common.map(function(tn){var t=m.data.teams.find(function(t){return t.name===tn;});return t&&t.scores[ql]!==undefined?t.scores[ql]:null;}).filter(function(v){return v!==null;});
+      return vs.length?vs.reduce(function(a,b){return a+b;},0)/vs.length:null;
     });
+    var aFL=firstLast(avgVals);
+    var aDelta=(aFL.first!==null&&aFL.last!==null)?(aFL.last-aFL.first):null;
+    var dCol=aDelta===null?'#888':aDelta>0.05?'#2E7D32':aDelta<-0.05?'#C62828':'#888';
+    var dBg=aDelta===null?'#eee':aDelta>0.05?'#E8F5E9':aDelta<-0.05?'#FFEBEE':'#eee';
+    var dArr=aDelta===null?'':aDelta>0.05?'▲':aDelta<-0.05?'▼':'→';
+    var dStr=aDelta===null?'—':(aDelta>0?'+':'')+aDelta.toFixed(2);
+    html+='<div class="card"><div class="card-title">'+ql+'</div>'+
+      '<div class="trend-summary"><span>Gemiddelde over '+common.length+' teams · '+S.measurements.length+' meetmomenten</span>'+
+      (aDelta!==null?'<span class="pill-delta" style="background:'+dBg+';color:'+dCol+';">'+dArr+' '+dStr+' totaal</span>':'')+'</div>';
+    html+='<div class="trend-chart">'+buildLineChart(avgVals,mLabels)+'</div>';
+    var rows=common.map(function(tn){
+      var vals=S.measurements.map(function(m){var t=m.data.teams.find(function(t){return t.name===tn;});return t&&t.scores[ql]!==undefined?t.scores[ql]:null;});
+      if(vals.every(function(v){return v===null;}))return null;
+      var fl=firstLast(vals);
+      var delta=(fl.first!==null&&fl.last!==null)?(fl.last-fl.first):null;
+      var dc=delta===null?'#888':delta>0.05?'#2E7D32':delta<-0.05?'#C62828':'#888';
+      var arr=delta===null?'':delta>0.05?'▲':delta<-0.05?'▼':'→';
+      var ds=delta===null?'—':(delta>0?'+':'')+delta.toFixed(1);
+      return{
+        sortKey:delta===null?999:delta,
+        html:'<div class="trd-row">'+
+          '<div class="trd-name">'+tn+'</div>'+
+          '<div class="trd-spark">'+buildSparkline(vals)+'</div>'+
+          '<div class="trd-vals">'+
+            '<span style="color:'+(fl.first!==null?sc(fl.first):'#999')+';">'+(fl.first!==null?fl.first.toFixed(1):'—')+'</span>'+
+            '<span class="trd-arrow">→</span>'+
+            '<span class="trd-vend" style="color:'+(fl.last!==null?sc(fl.last):'#999')+';">'+(fl.last!==null?fl.last.toFixed(1):'—')+'</span>'+
+          '</div>'+
+          '<div class="trd-delta" style="color:'+dc+';">'+arr+' '+ds+'</div>'+
+        '</div>'
+      };
+    }).filter(function(r){return r;}).sort(function(a,b){return a.sortKey-b.sortKey;}).slice(0,25);
+    html+='<div class="trend-teams">'+rows.map(function(r){return r.html;}).join('')+'</div>';
     html+='</div>';
   });
   wrap.innerHTML=html;
