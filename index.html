@@ -120,16 +120,14 @@ body{font-family:'Inter',sans-serif;background:var(--gray);color:var(--black);mi
 .tr-dots{display:flex;gap:6px;align-items:center;flex:1;flex-wrap:wrap;padding-bottom:20px;}
 .tdot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;position:relative;flex-shrink:0;}
 .tdot::after{content:attr(data-l);position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--gray-dark);white-space:nowrap;}
-.trend-chart{margin:14px 0 20px;background:var(--gray);border-radius:10px;padding:14px 12px 6px;}
-.trend-chart svg{width:100%;height:auto;display:block;}
-.trend-summary{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--gray-dark);margin-bottom:6px;flex-wrap:wrap;}
-.trend-summary .pill-delta{font-weight:700;padding:2px 9px;border-radius:12px;font-size:11px;}
-.trend-teams{border-top:1px solid var(--gray-mid);padding-top:4px;margin-top:8px;}
-.trd-row{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid #f0f0f0;}
+.trend-summary{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--gray-dark);margin:6px 0 14px;flex-wrap:wrap;}
+.trend-summary .pill-delta{font-weight:700;padding:3px 11px;border-radius:12px;font-size:11px;}
+.trend-teams{border-top:1px solid var(--gray-mid);padding-top:4px;margin-top:4px;}
+.trd-row{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid #f0f0f0;}
 .trd-row:last-child{border-bottom:none;}
 .trd-name{flex:0 0 200px;font-size:13px;font-weight:500;}
-.trd-spark{flex:0 0 140px;}
-.trd-spark svg{display:block;}
+.trd-spark{flex:0 0 230px;background:#fafafa;border-radius:6px;padding:2px 6px;}
+.trd-spark svg{display:block;width:100%;height:auto;}
 .trd-vals{flex:0 0 96px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;}
 .trd-vals .trd-arrow{color:#bbb;}
 .trd-vals .trd-vend{font-size:15px;}
@@ -139,7 +137,7 @@ body{font-family:'Inter',sans-serif;background:var(--gray);color:var(--black);mi
 .filters{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--black);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:1000;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateY(0);}
-@media(max-width:768px){.hdr,.topbar,.tabs,.pane{padding-left:16px;padding-right:16px;}.kpi-row{grid-template-columns:repeat(2,1fr);}.sg{grid-template-columns:1fr;}.tr-name{flex:0 0 110px;font-size:11px;}.trd-name{flex:0 0 110px;font-size:11px;}.trd-spark{flex:0 0 90px;}.trd-vals{flex:0 0 80px;font-size:11px;}.trd-vals .trd-vend{font-size:13px;}.trd-delta{font-size:11px;}}
+@media(max-width:768px){.hdr,.topbar,.tabs,.pane{padding-left:16px;padding-right:16px;}.kpi-row{grid-template-columns:repeat(2,1fr);}.sg{grid-template-columns:1fr;}.tr-name{flex:0 0 110px;font-size:11px;}.trd-name{flex:0 0 100px;font-size:11px;}.trd-spark{flex:0 0 140px;}.trd-vals{flex:0 0 80px;font-size:11px;}.trd-vals .trd-vend{font-size:13px;}.trd-delta{font-size:11px;}}
 </style>
 </head>
 <body>
@@ -549,69 +547,37 @@ function trendColor(first,last){
   if(last<first-0.05)return'#C62828';
   return'#888';
 }
-function buildLineChart(values,labels){
-  var W=620,H=220,pad={t:24,r:16,b:36,l:34};
-  var w=W-pad.l-pad.r,h=H-pad.t-pad.b;
+function buildSparkline(values){
+  var W=220,H=64,pT=16,pB=8,pL=8,pR=8;
+  var w=W-pL-pR,h=H-pT-pB;
   var nn=values.filter(function(v){return v!==null;});
-  if(nn.length<2)return'<div style="text-align:center;padding:30px;color:var(--gray-dark);font-size:12px;">Niet genoeg data voor grafiek</div>';
+  if(nn.length<2)return'<svg viewBox="0 0 '+W+' '+H+'"></svg>';
   var dMin=Math.min.apply(null,nn),dMax=Math.max.apply(null,nn);
-  var range=Math.max(dMax-dMin,1);
-  var yMin=Math.max(0,Math.floor((dMin-range*0.2)*2)/2);
-  var yMax=Math.min(10,Math.ceil((dMax+range*0.2)*2)/2);
-  if(yMax-yMin<1){yMax=Math.min(10,yMin+1);}
+  var range=Math.max(dMax-dMin,0.6);
+  var yMin=dMin-range*0.3,yMax=dMax+range*0.3;
   var n=values.length;
-  var xs=values.map(function(_,i){return pad.l+(n===1?w/2:w*i/(n-1));});
-  var ys=values.map(function(v){return v===null?null:pad.t+h*(1-(v-yMin)/(yMax-yMin));});
+  var xs=values.map(function(_,i){return pL+(n===1?w/2:w*i/(n-1));});
+  var ys=values.map(function(v){return v===null?null:pT+h*(1-(v-yMin)/(yMax-yMin));});
   var fl=firstLast(values),col=trendColor(fl.first,fl.last);
-  var path='',started=false;
-  for(var i=0;i<n;i++){if(ys[i]!==null){path+=(started?' L':'M')+xs[i].toFixed(1)+','+ys[i].toFixed(1);started=true;}}
-  var area=path?path+' L'+xs[n-1].toFixed(1)+','+(pad.t+h)+' L'+xs[0].toFixed(1)+','+(pad.t+h)+' Z':'';
-  var grid='',steps=4;
-  for(var g=0;g<=steps;g++){
-    var yv=yMin+(yMax-yMin)*g/steps,py=pad.t+h*(1-g/steps);
-    grid+='<line x1="'+pad.l+'" y1="'+py+'" x2="'+(pad.l+w)+'" y2="'+py+'" stroke="#e4e4e4" stroke-width="1"/>';
-    grid+='<text x="'+(pad.l-6)+'" y="'+(py+3)+'" font-size="9" fill="#888" text-anchor="end">'+yv.toFixed(1)+'</text>';
-  }
-  var xlabels='';
-  for(var i=0;i<n;i++){
-    xlabels+='<text x="'+xs[i].toFixed(1)+'" y="'+(pad.t+h+14)+'" font-size="9" fill="#666" text-anchor="middle">'+labels[i]+'</text>';
-  }
+  var path='',started=false,firstX=null,lastX=null;
+  for(var i=0;i<n;i++){if(ys[i]!==null){path+=(started?' L':'M')+xs[i].toFixed(1)+','+ys[i].toFixed(1);started=true;if(firstX===null)firstX=xs[i];lastX=xs[i];}}
+  var area=path&&firstX!==null?path+' L'+lastX.toFixed(1)+','+(pT+h)+' L'+firstX.toFixed(1)+','+(pT+h)+' Z':'';
+  var baseY=pT+h+0.5;
   var dots='';
   for(var i=0;i<n;i++){
     if(ys[i]===null)continue;
     var dc=sc(values[i]);
-    dots+='<circle cx="'+xs[i].toFixed(1)+'" cy="'+ys[i].toFixed(1)+'" r="4.5" fill="'+dc+'" stroke="#fff" stroke-width="2"/>';
-    dots+='<text x="'+xs[i].toFixed(1)+'" y="'+(ys[i]-10).toFixed(1)+'" font-size="11" font-weight="700" fill="'+dc+'" text-anchor="middle">'+values[i].toFixed(1)+'</text>';
+    dots+='<text x="'+xs[i].toFixed(1)+'" y="'+(ys[i]-7).toFixed(1)+'" font-size="9.5" font-weight="700" fill="'+dc+'" text-anchor="middle">'+values[i].toFixed(1)+'</text>';
+    dots+='<circle cx="'+xs[i].toFixed(1)+'" cy="'+ys[i].toFixed(1)+'" r="3.8" fill="'+dc+'" stroke="#fff" stroke-width="1.6"/>';
   }
-  var gid='g'+Math.floor(Math.random()*1e9);
+  var gid='s'+Math.floor(Math.random()*1e9);
   return'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'+
-    '<defs><linearGradient id="'+gid+'" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="'+col+'" stop-opacity="0.18"/><stop offset="100%" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'+
-    grid+
+    '<defs><linearGradient id="'+gid+'" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="'+col+'" stop-opacity="0.28"/><stop offset="100%" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'+
+    '<line x1="'+pL+'" y1="'+baseY+'" x2="'+(pL+w)+'" y2="'+baseY+'" stroke="#e0e0e0" stroke-width="1"/>'+
     (area?'<path d="'+area+'" fill="url(#'+gid+')"/>':'')+
-    '<path d="'+path+'" fill="none" stroke="'+col+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'+
-    dots+xlabels+
+    '<path d="'+path+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'+
+    dots+
   '</svg>';
-}
-function buildSparkline(values){
-  var W=140,H=36,p=4;
-  var w=W-p*2,h=H-p*2;
-  var nn=values.filter(function(v){return v!==null;});
-  if(nn.length<2)return'<svg viewBox="0 0 '+W+' '+H+'" style="width:'+W+'px;height:'+H+'px;"></svg>';
-  var dMin=Math.min.apply(null,nn),dMax=Math.max.apply(null,nn);
-  var range=Math.max(dMax-dMin,0.5);
-  var yMin=dMin-range*0.25,yMax=dMax+range*0.25;
-  var n=values.length;
-  var xs=values.map(function(_,i){return p+(n===1?w/2:w*i/(n-1));});
-  var ys=values.map(function(v){return v===null?null:p+h*(1-(v-yMin)/(yMax-yMin));});
-  var fl=firstLast(values),col=trendColor(fl.first,fl.last);
-  var path='',started=false;
-  for(var i=0;i<n;i++){if(ys[i]!==null){path+=(started?' L':'M')+xs[i].toFixed(1)+','+ys[i].toFixed(1);started=true;}}
-  var dots='';
-  for(var i=0;i<n;i++){
-    if(ys[i]===null)continue;
-    dots+='<circle cx="'+xs[i].toFixed(1)+'" cy="'+ys[i].toFixed(1)+'" r="2.5" fill="'+sc(values[i])+'"/>';
-  }
-  return'<svg viewBox="0 0 '+W+' '+H+'" style="width:'+W+'px;height:'+H+'px;"><path d="'+path+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'+dots+'</svg>';
 }
 function renderTrends(){
   var wrap=document.getElementById('trends-wrap');
@@ -619,7 +585,6 @@ function renderTrends(){
   var qs=S.measurements[0].data.questions.map(function(q){return q.label;});
   var sets=S.measurements.map(function(m){return new Set(m.data.teams.map(function(t){return t.name;}));});
   var common=[...sets[0]].filter(function(n){return sets.every(function(s){return s.has(n);});});
-  var mLabels=S.measurements.map(function(m){return m.name.length>14?m.name.substring(0,14)+'…':m.name;});
   var html='';
   qs.forEach(function(ql){
     var avgVals=S.measurements.map(function(m){
@@ -635,7 +600,6 @@ function renderTrends(){
     html+='<div class="card"><div class="card-title">'+ql+'</div>'+
       '<div class="trend-summary"><span>Gemiddelde over '+common.length+' teams · '+S.measurements.length+' meetmomenten</span>'+
       (aDelta!==null?'<span class="pill-delta" style="background:'+dBg+';color:'+dCol+';">'+dArr+' '+dStr+' totaal</span>':'')+'</div>';
-    html+='<div class="trend-chart">'+buildLineChart(avgVals,mLabels)+'</div>';
     var rows=common.map(function(tn){
       var vals=S.measurements.map(function(m){var t=m.data.teams.find(function(t){return t.name===tn;});return t&&t.scores[ql]!==undefined?t.scores[ql]:null;});
       if(vals.every(function(v){return v===null;}))return null;
